@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MobileContactBar } from "@/components/MobileContactBar";
 import { JsonLd } from "@/components/JsonLd";
+import { Chatbot } from "@/components/chatbot/Chatbot";
 import "./globals.css";
 
 const serif = Cormorant_Garamond({
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </main>
         <Footer />
         <MobileContactBar />
+        <Chatbot />
       </body>
     </html>
   );

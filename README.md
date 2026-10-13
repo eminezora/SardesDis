@@ -215,6 +215,28 @@ Hata yanıtları: `{"error":{"code":"...","message":"..."}}`. Durum kodları:
 400 hatalı istek, 401 anahtar yanlış, 404 bulunamadı veya API kapalı,
 409 çakışma / izin verilmeyen geçiş.
 
+## Sardes Asistan (sohbet)
+
+Sağ alttaki diş maskotuna tıklanınca açılan, kural tabanlı bilgilendirme
+asistanı. İnternete veya yapay zekâ servisine bağlanmaz; mesajlar tarayıcıda
+eşleştirilir. Kişisel bilgi toplamaz, kaydetmez ve randevu oluşturmaz.
+
+- **Yanıtları düzenlemek:** `src/config/chatbot.ts`. Karşılama mesajı, hızlı
+  seçenekler, konu başlıkları, anahtar kelimeler ve yanıt metinleri buradadır.
+  `{hekimler}`, `{adres}`, `{telefon}` yer tutucuları `src/config/site.ts`
+  dosyasından doldurulur. Örnek telefon numarası hiçbir zaman gösterilmez.
+- **Randevu Al:** sitenin mevcut randevu sayfasına (`/randevu`) gider. Online
+  randevu yayında henüz açık değilken bu sayfa bulunmadığı için asistan bozuk
+  bağlantı yerine durumu açıklar ve İletişim sayfasını önerir. Randevu
+  açılınca (`booking.enabled`) buton kendiliğinden randevu sayfasına yönlendirir.
+- **Eşleştirme:** Türkçe büyük/küçük harf ve karakter farkı gözetmez
+  ("DİŞ İPİ" = "dis ipi"). Ek almış kelimeleri ("randevumu") tanır, küçük
+  yazım hatalarını ("randvu", "fırçalma") tolere eder. Sağlık şikâyeti ve
+  ilaç soruları her zaman önce yakalanır ve diş hekimine yönlendirilir.
+- **Maskot:** `src/components/chatbot/ToothMascot.tsx` (SVG). Göz kırpma ve
+  kısa selamlama hareketi, "hareketi azalt" tercihinde kapanır.
+- Karşılama balonu her tarayıcıda yalnızca bir kez gösterilir.
+
 ## Google ile giriş
 
 Ortam değişkenleri tanımlıysa giriş ve kayıt sayfalarında
@@ -314,9 +336,12 @@ src/
   components/           tekrar kullanılabilir bileşenler
   config/site.ts        ← tüm klinik bilgileri ve randevu ayarları
   config/navigation.ts  menü
+  config/chatbot.ts     ← Sardes Asistan yanıtları ve anahtar kelimeleri
   lib/content.ts        görünürlük kuralları (telefon, taslak tedaviler vb.)
   lib/booking-status.ts online randevunun açık olup olmadığı
   lib/password-rules.ts şifre kuralları
+  lib/chatbot-engine.ts sohbet eşleştirme motoru
+  components/chatbot/   maskot ve sohbet penceresi
   actions/              sunucu işlemleri (kayıt, giriş, randevu, Google)
   server/               veritabanı, oturum, randevu kuralları, senkronizasyon
 data/                   SQLite veritabanı (depoya ASLA eklenmez)
