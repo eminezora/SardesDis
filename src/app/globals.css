@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+/*
+ * Renkler logodan alınmıştır: logo zemini antrasit-siyah (#181818),
+ * yazı ve çizgiler sıcak altın.
+ * Not: tarihî nedenlerle "forest" adı korunmuştur; değeri marka koyu tonudur.
+ * Altın (--color-gold) yalnızca ince çizgi ve küçük ayrıntılar içindir;
+ * açık zeminde metin rengi olarak kullanılmaz. Açık zeminde büyük vurgulu
+ * metin için --color-bronze kullanılır (kontrast ≥ 4.5:1).
+ */
+@theme {
+  --color-ivory: #f7f4ee;
+  --color-paper: #fcfaf6;
+  --color-stone: #ede7dc;
+  --color-stone-deep: #d9cfbd;
+  --color-ink: #1d1c1a;
+  --color-muted: #5a5750;
+  --color-forest: #1b1b1b;
+  --color-forest-deep: #121212;
+  --color-gold: #b88a3a;
+  --color-bronze: #80591a;
+  --color-champagne: #dcbb6c;
+
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --ease-calm: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-ivory);
+    color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    background-color: var(--color-ivory);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Cormorant'ın eski stil "1" rakamı "ı" harfine benzediği için düz rakam */
+  h1,
+  h2,
+  h3,
+  legend,
+  .font-serif {
+    font-variant-numeric: lining-nums;
+  }
+
+  ::selection {
+    background: var(--color-forest);
+    color: var(--color-paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-forest);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .on-dark :focus-visible {
+    outline-color: var(--color-champagne);
+  }
+}
+
+@layer components {
+  /* Küçük başlık etiketi: ince altın çizgi + aralıklı büyük harf */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 2rem;
+    height: 1px;
+    background: var(--color-gold);
+  }
+
+  .hairline {
+    height: 1px;
+    background: var(--color-stone-deep);
+  }
+}
+
+/* Sayfa geçişi: çok kısa ve hafif bir belirme */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page-enter {
+  animation: page-enter 0.45s var(--ease-calm) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

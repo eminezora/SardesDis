@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+next-env.d.ts
+*.tsbuildinfo
+.env
+.env*.local
+.DS_Store
+
+# Veritabanı ve hasta dosyaları (sağlık verisi — ASLA depoya eklemeyin)
+data/*
+!data/.gitkeep
+*.db
+*.db-*
+
+# Yerel araç ayarları
+.claude/
