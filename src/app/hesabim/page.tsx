@@ -23,7 +23,7 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ talep?: string; iptal?: string }>;
 }) {
-  const user = await requireUser("patient", { next: "/hesabim" });
+  const user = await requireUser({ next: "/hesabim" });
   const { talep, iptal } = await searchParams;
   const { kvkk_consent_at } = getDb()
     .prepare("SELECT kvkk_consent_at FROM users WHERE id = ?")

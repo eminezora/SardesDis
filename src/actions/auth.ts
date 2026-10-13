@@ -17,12 +17,12 @@ import {
   destroyOtherSessions,
   destroySession,
   getCurrentUser,
-  homeFor,
+  ACCOUNT_HOME,
   recordFailedAttempt,
   tooManyAttempts,
-  type Role,
 } from "@/server/auth";
 import { getDb } from "@/server/db";
+import { recordEvent } from "@/server/sync";
 import { DUMMY_HASH, hashPassword, verifyPassword } from "@/server/password";
 
 export type FormState = {
@@ -69,7 +69,7 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
     .prepare(
       "SELECT id, role, password_hash IS NULL AS unclaimed FROM users WHERE phone = ? OR (email IS NOT NULL AND email = ?)",
     )
-    .all(phone, email) as { id: number; role: Role; unclaimed: number }[];
+    .all(phone, email) as { id: number; role: "patient" | "staff"; unclaimed: number }[];
 
   // Klinikte telefonla randevu almış, online hesabı olmayan hasta: kaydını sahiplenir
   const claim = taken.length === 1 && taken[0].role === "patient" && taken[0].unclaimed === 1 ? taken[0] : null;
@@ -94,6 +94,7 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
       return { values, error: "Bu telefon numarası ile kayıtlı bir hesap var. Giriş yapmayı deneyin." };
     }
     userId = claim.id;
+    recordEvent(db, "patient.updated", userId);
   } else {
     const r = db
       .prepare(
@@ -102,9 +103,10 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
       )
       .run(values.firstName, values.lastName, phone, email, hash, now, now);
     userId = Number(r.lastInsertRowid);
+    recordEvent(db, "patient.created", userId);
   }
 
-  await createSession(userId, "patient");
+  await createSession(userId);
   redirect(safeNext(str(form, "next"), "/randevu"));
 }
 
@@ -129,21 +131,22 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
     .prepare(
       `SELECT id, role, password_hash, disabled FROM users WHERE ${byEmail ? "email" : "phone"} = ?`,
     )
-    .get(key) as { id: number; role: Role; password_hash: string | null; disabled: number } | undefined;
+    .get(key) as { id: number; role: "patient" | "staff"; password_hash: string | null; disabled: number } | undefined;
 
   // Hesap yoksa (veya telefonla eklenmiş, şifresiz kayıtsa) da aynı sürede yanıt ver
   const ok = await verifyPassword(password, row?.password_hash ?? DUMMY_HASH);
-  if (!row?.password_hash || !ok || row.disabled) {
+  // Bu sitede yalnızca hasta hesapları giriş yapabilir
+  if (!row?.password_hash || !ok || row.disabled || row.role !== "patient") {
     recordFailedAttempt(attemptKey);
     return { values, error: "Bilgiler hatalı. Lütfen kontrol edip tekrar deneyin." };
   }
-  if (row.role === "patient" && !bookingOpen) {
+  if (!bookingOpen) {
     return { values, error: "Hasta hesapları şu anda kullanıma kapalı." };
   }
 
   clearAttempts(attemptKey);
-  await createSession(row.id, row.role);
-  redirect(safeNext(str(form, "next"), homeFor(row)));
+  await createSession(row.id);
+  redirect(safeNext(str(form, "next"), ACCOUNT_HOME));
 }
 
 export async function logout() {
@@ -178,6 +181,6 @@ export async function changePassword(_: FormState, form: FormData): Promise<Form
     .run(await hashPassword(next), user.id);
   destroyOtherSessions(user.id, await currentToken());
 
-  if (user.mustChangePassword) redirect(homeFor(user));
+  if (user.mustChangePassword) redirect(ACCOUNT_HOME);
   return { ok: "Şifreniz değiştirildi." };
 }

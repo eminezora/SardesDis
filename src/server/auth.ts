@@ -5,35 +5,30 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { getDb } from "./db";
 
-export type Role = "patient" | "staff";
-export type StaffRole = "doctor" | "assistant";
-
+/**
+ * Bu site yalnızca hastalara açıktır: oturum açabilen tek rol "patient".
+ * (Veritabanındaki "staff" rolü ileride ayrı yönetim sitesi için ayrılmıştır;
+ * bu sitede personel girişi yoktur.)
+ */
 export type User = {
   id: number;
-  role: Role;
   firstName: string;
   lastName: string;
   phone: string | null;
   email: string | null;
   mustChangePassword: boolean;
-  /** Yalnızca personel için: doktor veya asistan */
-  staffRole: StaffRole | null;
 };
 
 const COOKIE = "sardes_oturum";
-/** Hasta oturumu 30 gün; hasta verisine erişen personel oturumu 12 saat */
-const SESSION_MS: Record<Role, number> = {
-  patient: 30 * 24 * 60 * 60 * 1000,
-  staff: 12 * 60 * 60 * 1000,
-};
+const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** Oturum açar: rastgele anahtar çerezde, yalnızca özeti veritabanında tutulur. */
-export async function createSession(userId: number, role: Role) {
+export async function createSession(userId: number) {
   const token = randomBytes(32).toString("base64url");
   const now = Date.now();
-  const expires = now + SESSION_MS[role];
+  const expires = now + SESSION_MS;
   const db = getDb();
   db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(now);
   db.prepare(
@@ -69,25 +64,21 @@ export async function currentToken() {
 
 type UserRow = {
   id: number;
-  role: Role;
   first_name: string;
   last_name: string;
   phone: string | null;
   email: string | null;
   must_change_pw: number;
-  staff_role: StaffRole | null;
 };
 
-export function rowToUser(r: UserRow): User {
+function rowToUser(r: UserRow): User {
   return {
     id: r.id,
-    role: r.role,
     firstName: r.first_name,
     lastName: r.last_name,
     phone: r.phone,
     email: r.email,
     mustChangePassword: r.must_change_pw === 1,
-    staffRole: r.role === "staff" ? (r.staff_role ?? "assistant") : null,
   };
 }
 
@@ -97,32 +88,28 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   if (!token) return null;
   const row = getDb()
     .prepare(
-      `SELECT u.id, u.role, u.first_name, u.last_name, u.phone, u.email, u.must_change_pw, u.staff_role
+      `SELECT u.id, u.first_name, u.last_name, u.phone, u.email, u.must_change_pw
          FROM sessions s JOIN users u ON u.id = s.user_id
-        WHERE s.token_hash = ? AND s.expires_at > ? AND u.disabled = 0 AND u.password_hash IS NOT NULL`,
+        WHERE s.token_hash = ? AND s.expires_at > ? AND u.role = 'patient'
+          AND u.disabled = 0 AND u.password_hash IS NOT NULL`,
     )
     .get(sha256(token), Date.now()) as UserRow | undefined;
   return row ? rowToUser(row) : null;
 });
 
 /**
- * Giriş zorunlu sayfalar için. Rol uymuyorsa kullanıcının kendi sayfasına,
- * geçici şifreyle girildiyse şifre belirleme sayfasına yönlendirir.
+ * Giriş zorunlu sayfalar için. Geçici şifreyle girildiyse (klinik tarafından
+ * sıfırlanmışsa) önce şifre belirleme sayfasına yönlendirir.
  */
-export async function requireUser(
-  role?: Role,
-  opts: { next?: string; passwordPage?: boolean } = {},
-): Promise<User> {
+export async function requireUser(opts: { next?: string; passwordPage?: boolean } = {}): Promise<User> {
   const user = await getCurrentUser();
   if (!user) redirect(opts.next ? `/giris?sonra=${encodeURIComponent(opts.next)}` : "/giris");
   if (user.mustChangePassword && !opts.passwordPage) redirect("/hesabim/sifre");
-  if (role && user.role !== role) redirect(homeFor(user));
   return user;
 }
 
-export function homeFor(user: Pick<User, "role">) {
-  return user.role === "staff" ? "/yonetim" : "/hesabim";
-}
+/** Hastanın giriş sonrası ana sayfası */
+export const ACCOUNT_HOME = "/hesabim";
 
 /* Giriş denemesi sınırı ------------------------------------------ */
 

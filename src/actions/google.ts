@@ -5,6 +5,7 @@ import { bookingOpen } from "@/lib/booking-status";
 import { normalizeMobile, str, validName, type FieldErrors } from "@/lib/validation";
 import { createSession } from "@/server/auth";
 import { getDb } from "@/server/db";
+import { recordEvent } from "@/server/sync";
 import { clearPending, readPending } from "@/server/google-pending";
 import type { FormState } from "./auth";
 
@@ -56,6 +57,7 @@ export async function completeGoogleSignup(_: FormState, form: FormData): Promis
         WHERE id = ? AND password_hash IS NULL`,
     ).run(values.firstName, values.lastName, pending.email, GOOGLE_ONLY_HASH, pending.sub, now, byPhone.id);
     userId = byPhone.id;
+    recordEvent(db, "patient.updated", userId);
   } else {
     const r = db
       .prepare(
@@ -64,10 +66,11 @@ export async function completeGoogleSignup(_: FormState, form: FormData): Promis
       )
       .run(values.firstName, values.lastName, phone, pending.email, GOOGLE_ONLY_HASH, pending.sub, now, now);
     userId = Number(r.lastInsertRowid);
+    recordEvent(db, "patient.created", userId);
   }
 
   await clearPending(pending.hash);
-  await createSession(userId, "patient");
+  await createSession(userId);
   const next = pending.next.startsWith("/") && !pending.next.startsWith("//") ? pending.next : "/randevu";
   redirect(next);
 }

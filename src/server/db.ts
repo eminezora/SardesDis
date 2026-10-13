@@ -124,6 +124,23 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX audit_log_patient ON audit_log(patient_id, at);
   `,
+  /* 4 — yönetim sitesiyle senkronizasyon: her değişiklik sıralı bir olay olarak
+         kaydedilir; yönetim sitesi /api/sync/events ile kaldığı yerden çeker */ `
+  CREATE TABLE sync_events (
+    seq       INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity    TEXT    NOT NULL CHECK (entity IN ('patient', 'appointment')),
+    entity_id INTEGER NOT NULL,
+    type      TEXT    NOT NULL,
+    at        INTEGER NOT NULL
+  );
+  CREATE INDEX sync_events_entity ON sync_events(entity, entity_id);
+
+  -- Mevcut kayıtlar ilk aktarımda yönetim sitesine geçsin
+  INSERT INTO sync_events (entity, entity_id, type, at)
+    SELECT 'patient', id, 'patient.created', created_at FROM users WHERE role = 'patient' ORDER BY id;
+  INSERT INTO sync_events (entity, entity_id, type, at)
+    SELECT 'appointment', id, 'appointment.created', created_at FROM appointments ORDER BY id;
+  `,
 ];
 
 function open(): DatabaseSync {

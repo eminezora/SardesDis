@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { bookingOpen } from "@/lib/booking-status";
-import { getCurrentUser, homeFor } from "@/server/auth";
+import { ACCOUNT_HOME, getCurrentUser } from "@/server/auth";
 import { AuthShell } from "@/components/AuthShell";
 import { RegisterForm } from "@/components/account/RegisterForm";
 import { GoogleButton } from "@/components/account/GoogleButton";
@@ -17,7 +17,7 @@ export default async function RegisterPage({
 }) {
   if (!bookingOpen) notFound();
   const user = await getCurrentUser();
-  if (user) redirect(homeFor(user));
+  if (user) redirect(ACCOUNT_HOME);
   const { sonra } = await searchParams;
 
   return (

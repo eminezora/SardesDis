@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireUser, homeFor } from "@/server/auth";
+import { ACCOUNT_HOME, requireUser } from "@/server/auth";
 import { AuthShell } from "@/components/AuthShell";
 import { PasswordForm } from "@/components/account/PasswordForm";
 
 export const metadata: Metadata = { title: "Şifre", robots: { index: false } };
 
 export default async function PasswordPage() {
-  const user = await requireUser(undefined, { passwordPage: true, next: "/hesabim/sifre" });
+  const user = await requireUser({ passwordPage: true, next: "/hesabim/sifre" });
   const forced = user.mustChangePassword;
   return (
     <AuthShell
@@ -18,7 +18,7 @@ export default async function PasswordPage() {
       <PasswordForm forced={forced} />
       {!forced && (
         <p className="mt-10 border-t border-stone-deep pt-8 text-[0.9375rem]">
-          <Link href={homeFor(user)} className="text-forest underline decoration-gold underline-offset-4">
+          <Link href={ACCOUNT_HOME} className="text-forest underline decoration-gold underline-offset-4">
             Geri dön
           </Link>
         </p>

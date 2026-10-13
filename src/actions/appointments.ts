@@ -13,7 +13,6 @@ export async function bookAppointment(_: FormState, form: FormData): Promise<For
   if (!bookingOpen) return { error: "Online randevu şu anda kapalı." };
   const user = await getCurrentUser();
   if (!user) redirect("/giris?sonra=/randevu");
-  if (user.role !== "patient") return { error: "Personel hesabıyla randevu alınamaz." };
 
   const date = str(form, "date");
   const time = str(form, "time");

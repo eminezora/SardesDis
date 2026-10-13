@@ -1,8 +1,12 @@
 # Sardes Diş Kliniği — Web Sitesi
 
-Salihli / Manisa'daki Sardes Diş Kliniği için Next.js 16, TypeScript ve
-Tailwind CSS 4 ile hazırlanmış kurumsal site. Tüm sayfalar statik olarak
-üretilir; ek veritabanı veya servis gerekmez.
+Salihli / Manisa'daki Sardes Diş Kliniği'nin **halka açık hasta sitesi**
+(Next.js 16, TypeScript, Tailwind CSS 4). Ziyaretçiler kliniği tanır; randevu
+almak isteyenler üye olup online randevu talebi oluşturur.
+
+Bu sitede **yönetici / personel girişi yoktur.** Randevular ve hasta kayıtları
+burada saklanır ve ileride yapılacak ayrı **yönetim sitesine** güvenli bir
+senkronizasyon API'siyle aktarılır (bkz. [Yönetim sitesiyle senkronizasyon](#yönetim-sitesiyle-senkronizasyon)).
 
 ## Çalıştırma
 
@@ -90,41 +94,16 @@ doğrulanan her tedavi için `approved: true` yapın.
 
 ## Online randevu ve hasta hesabı
 
-Site, veritabanına bağlı bir randevu sistemi içerir:
+- `/kayit`: ad, soyad, cep telefonu, isteğe bağlı e-posta, güçlü şifre ve
+  KVKK onayıyla üyelik (veya Google ile).
+- `/giris`: cep telefonu / e-posta ve şifreyle giriş.
+- `/randevu`: hekim (veya "fark etmez"), gün ve boş saat seçilerek
+  **randevu talebi** gönderilir. Tıbbi bilgi veya dosya istenmez.
+- `/hesabim`: randevuların durumu ("Onay bekliyor", "Onaylandı" …), süresi
+  geçmemiş randevuyu iptal etme, şifre değiştirme.
 
-- **Hasta:** `/kayit` adresinden kayıt olur (ad, soyad, cep telefonu,
-  isteğe bağlı e-posta, şifre, KVKK onayı), `/giris` adresinden giriş yapar.
-  `/randevu` sayfasında hekim, gün ve boş saat seçip **randevu talebi**
-  gönderir. `/hesabim` sayfasında randevularının durumunu görür ve süresi
-  geçmemiş randevusunu iptal eder. Tıbbi bilgi veya dosya istenmez.
-- **Klinik personeli:** `/yonetim` panelinde talepleri görür, hekim atayıp
-  onaylar ya da "uygun değil" olarak işaretler. Randevu saati geçince
-  "tamamlandı" veya "gelmedi" olarak kapatır. Telefonla alınan randevuları
-  "Randevu ekle" formuyla doğrudan **onaylı** olarak ekler (aşağıya bakın).
-  `/yonetim/hastalar` sayfasında hastaları arar ve şifresini unutan hasta
-  için geçici şifre üretir.
-
-### Telefonla alınan randevular
-
-`/yonetim` sayfasındaki "Randevu ekle" formuyla personel kayıtlı bir hastayı
-arar ya da yeni hasta için yalnızca ad, soyad ve cep telefonunu yazar; hekim
-(veya "belirlenmedi"), gün ve saati seçer. Saatler online takvimle aynı
-kurallardan gelir, dolu olanlar seçilemez. Gerekirse takvim dışı bir saat de
-girilebilir; çakışma kontrolü her durumda yapılır. Her randevu
-`booking.slotMinutes` sürer: takvim dışı 10:15'e eklenen randevu online
-takvimde 10:00 ve 10:30'u da doldurur.
-
-Telefonla eklenen yeni hasta **şifresiz** kaydedilir ve giriş yapamaz (KVKK
-onayı da yoktur). Hasta daha sonra aynı cep telefonuyla `/kayit` olursa KVKK
-onayı vererek bu kaydı sahiplenir ve randevularını "Hesabım"da görür. Kayıtta
-telefon doğrulaması (SMS kodu) olmadığından, numarayı bilen biri bu kaydı
-sahiplenebilir. Bu riski azaltmak için hasta, "Hesabım"da yalnızca kaydı
-sahiplendiği andan **sonra** oluşturulan randevuları görür; önceki randevu
-geçmişi ve hasta dosyası kayıtları hastaya hiçbir zaman gösterilmez.
-Yine de SMS doğrulaması eklenmeden yayına alınması önerilmez.
-
-Talep, klinik onaylayana kadar kesinleşmiş sayılmaz. Bu durum hastaya da
-açıkça yazılır.
+Talep, klinik onaylayana kadar kesinleşmiş sayılmaz; bu hastaya açıkça
+yazılır. Onay, yönetim sitesinden API ile gelir.
 
 ### Yayında açmak
 
@@ -141,7 +120,7 @@ dosyasında:
 3. Gerçek telefon numarası (`contact.phone`, `isPlaceholder: false`).
 4. `booking.enabled: true`.
 
-Bunlardan biri eksikse sistem açılmaz. Yönetim paneli eksikleri listeler.
+Bunlardan biri eksikse sistem açılmaz (`src/lib/booking-status.ts`).
 Randevu süresi, en erken/en geç randevu, kişi başı aktif randevu sınırı,
 iptal süresi ve tatil günleri de `booking` bölümünden ayarlanır.
 
@@ -151,50 +130,90 @@ iptal süresi ve tatil günleri de `booking` bölümünden ayarlanır.
 (`.env.development` → `NEXT_PUBLIC_PREVIEW_BOOKING=1`). Örnek saatler
 kliniğin gerçek saatleri değildir ve yayında hiçbir zaman kullanılmaz.
 
-### Personel hesabı oluşturma (doktor / asistan)
+## Yönetim sitesiyle senkronizasyon
 
-Personel hesapları siteden açılamaz; sunucuda şu komutla oluşturulur:
+Bu site randevu ve hasta kayıtlarının **kaynağıdır**. Yönetim sitesi
+(ayrı bir proje) verileri buradan çeker ve kararlarını (onay, iptal, telefon
+randevusu) buraya geri yazar. Böylece:
 
-```bash
-npm run personel:ekle -- --ad "Remzi" --soyad "Oruç" --eposta adres@ornek.com --rol doktor
-npm run personel:ekle -- --ad "Ad" --soyad "Soyad" --eposta asistan@ornek.com --rol asistan
+- hastanın aldığı her randevu yönetim sitesine aktarılır,
+- klinik onayladığında hasta bunu "Hesabım"da görür,
+- telefonla verilen randevular online takvimde dolu görünür (çift randevu olmaz).
+
+### Kurulum
+
+Sunucuda ortam değişkenlerini tanımlayın (`.env.example`):
+
+| Değişken | Açıklama |
+| --- | --- |
+| `SYNC_API_KEY` | Yönetim sitesinin API anahtarı, **en az 32 karakter** rastgele değer. Tanımlı değilse API tamamen kapalıdır. Üretmek için: `openssl rand -base64 36` |
+| `SYNC_WEBHOOK_URL` | (İsteğe bağlı) Değişiklik olunca haber verilecek yönetim sitesi adresi |
+
+Her istekte başlık: `Authorization: Bearer <SYNC_API_KEY>`. API yalnızca
+HTTPS üzerinden kullanılmalıdır; anahtar yalnızca iki sunucu arasında
+kalmalı, tarayıcıya veya mobil uygulamaya konmamalıdır.
+
+### Nasıl çalışır
+
+Hasta ve randevu kayıtlarındaki **her değişiklik**, artan bir sıra numarasıyla
+(`seq`) olay olarak kaydedilir. Yönetim sitesi son aldığı `seq` değerini
+saklar ve kaldığı yerden devam eder. Bağlantı kopsa, sunucu kapansa bile
+olay kaybolmaz. Aynı olay iki kez alınırsa sorun olmaz: kayıtlar `id` ile
+güncellenir. Sistem kurulduğunda mevcut tüm hasta ve randevular da ilk
+olaylar olarak eklenir.
+
+Webhook açıksa, değişiklikten yaklaşık yarım saniye sonra yönetim sitesine
+`{"event":"changes","latest_seq":N}` gönderilir (kişisel veri içermez).
+`X-Sardes-Signature: sha256=<HMAC-SHA256(gövde, SYNC_API_KEY)>` başlığıyla
+doğrulanır. Webhook gelmese de yönetim sitesi düzenli aralıklarla
+(ör. dakikada bir) olayları çekerek eksiksiz kalır.
+
+### Uç noktalar
+
+| Yöntem ve yol | Ne yapar |
+| --- | --- |
+| `GET /api/sync/info` | Bağlantı testi; hekimler, takvim, randevu süresi, son `seq` |
+| `GET /api/sync/events?after=<seq>&limit=100` | Değişiklik akışı (`events`, `next_after`, `has_more`). Her olay kaydın **güncel** halini taşır; randevu olaylarında hasta bilgisi de vardır |
+| `GET /api/sync/appointments?from=YYYY-AA-GG&to=YYYY-AA-GG` | Tarih aralığındaki randevular (kontrol / ilk aktarım) |
+| `GET /api/sync/appointments/{id}` | Tek randevu |
+| `PATCH /api/sync/appointments/{id}` | Klinik kararı: `{"status":"confirmed","doctor_slug":"remzi-oruc"}` |
+| `POST /api/sync/appointments` | Telefonla alınan randevu (doğrudan onaylı), aşağıya bakın |
+| `GET /api/sync/slots?date=YYYY-AA-GG` | O günün saatleri ve her saatte boş hekimler |
+| `GET /api/sync/patients/{id}` | Tek hasta |
+| `POST /api/sync/patients/{id}/temporary-password` | Şifresini unutan hasta için geçici şifre (hasta ilk girişte değiştirir) |
+
+Olay türleri: `patient.created`, `patient.updated`, `appointment.created`,
+`appointment.updated`, `appointment.cancelled`.
+
+Randevu durumları ve izin verilen geçişler:
+
+- `pending` (onay bekliyor) → `confirmed` veya `rejected`
+- `confirmed` → `cancelled`; randevu saati geçtikten sonra `completed` veya `no_show`
+- Hasta, `booking.cancelUntilHours` öncesine kadar kendisi iptal edebilir
+  (`cancelled_by: "patient"`).
+
+Telefon randevusu örneği:
+
+```json
+POST /api/sync/appointments
+{
+  "patient": { "first_name": "Ali", "last_name": "Yılmaz", "phone": "0532 000 00 00" },
+  "date": "2026-10-14",
+  "time": "10:30",
+  "doctor_slug": "doganay-sayin",
+  "off_schedule": false
+}
 ```
 
-Komut tek seferlik bir geçici şifre yazar. Personel `/giris` adresinden
-e-postası ve bu şifreyle girer, ardından kendi şifresini belirlemek zorundadır.
-Aynı komut, mevcut bir personelin şifresini sıfırlamak veya rolünü
-değiştirmek için de kullanılır. Doktor ve asistan aynı ekranları görür; hasta
-dosyasından kayıt **silme** yalnızca doktorlara açıktır.
+Kayıtlı hasta için `patient` yerine `"patient_id": 12` gönderilir. Saat dolu
+ise `409 booking_conflict` döner. Telefonla eklenen yeni hasta **şifresiz**
+kaydedilir; hasta daha sonra aynı cep telefonuyla `/kayit` olursa KVKK onayı
+vererek bu kaydı sahiplenir. SMS doğrulaması olmadığından, sahiplenen kişi
+yalnızca sahiplendiği andan sonraki randevuları görür.
 
-Personel oturumu 12 saat sonra kapanır (hasta oturumu 30 gün).
-
-## Hasta dosyaları (yalnızca doktor ve asistan)
-
-`/yonetim/hastalar` listesinden bir hastanın adına tıklayınca hasta dosyası
-açılır (`/yonetim/hasta/[id]`). Burada:
-
-- **Kimlik ve iletişim** bilgileri, online hesabı ve KVKK onayı olup olmadığı,
-- **Gelecek ve geçmiş randevuların** tamamı,
-- **Kayıtlar**: muayene / tedavi notları, raporlar, röntgen ve filmler,
-  fotoğraflar ve belgeler. Türlerine göre süzülebilir.
-- **Dosya yükleme:** JPEG, PNG, WebP, PDF ve DICOM (.dcm), en fazla 30 MB.
-  Dosya türü uzantıya değil içeriğe bakılarak doğrulanır.
-- **Erişim kaydı:** dosyayı kimin ne zaman açtığı, neyi eklediği veya sildiği.
-
-Hastalar bu bölümü hiçbir şekilde göremez. Giriş yapmamış ya da hasta
-hesabıyla gelen biri hem sayfalardan hem dosya bağlantılarından geri
-çevrilir.
-
-Güvenlik ayrıntıları:
-
-- Dosyalar `public/` dışında, `data/files/` altında rastgele adlarla
-  saklanır (konum `FILES_PATH` ile değiştirilebilir). Yalnızca personel
-  oturumuyla `/api/kayitlar/[id]` üzerinden açılır ve tarayıcıda önbelleğe
-  alınmaz.
-- Silinen kayıt hasta dosyasında görünmez ama veritabanında ve diskte
-  kalır, denetim kaydına yazılır. Sağlık kayıtlarının saklama süreleri
-  yasal olarak düzenlendiğinden kalıcı silme bilinçli olarak yoktur.
-- Yükleme uç noktası başka sitelerden gelen istekleri reddeder (köken kontrolü).
+Hata yanıtları: `{"error":{"code":"...","message":"..."}}`. Durum kodları:
+400 hatalı istek, 401 anahtar yanlış, 404 bulunamadı veya API kapalı,
+409 çakışma / izin verilmeyen geçiş.
 
 ## Google ile giriş
 
@@ -209,26 +228,20 @@ Ortam değişkenleri tanımlıysa giriş ve kayıt sayfalarında
 3. Sunucuda `APP_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
    değişkenlerini tanımlayın.
 
-Nasıl çalışır:
-
-- **Hasta:** Google hesabının e-postası kayıtlı bir hastayla eşleşirse
-  giriş yapar. Eşleşmezse kayıt tamamlama sayfasında cep telefonunu ekler ve
-  KVKK metnini onaylar.
-- **Doktor / asistan:** yalnızca `npm run personel:ekle` ile açılmış ve
-  **aynı e-postaya** sahip bir personel hesabı varsa Google ile girebilir.
-  Google ile yeni personel hesabı açılamaz. Personel için Google girişi,
-  Google hesabındaki iki adımlı doğrulamadan yararlanmayı sağlar.
-- Google ile kayıt olan hastanın site şifresi yoktur; her zaman Google ile girer.
+Google hesabının e-postası kayıtlı bir hastayla eşleşirse hasta giriş yapar.
+Eşleşmezse kayıt tamamlama sayfasında cep telefonunu ekler ve KVKK metnini
+onaylar. Google ile kayıt olan hastanın site şifresi yoktur; her zaman Google
+ile girer.
 
 ## Şifre kuralları
 
-Hasta ve personel şifreleri en az 10 karakter olmalı; büyük harf, küçük
-harf, rakam ve özel karakter içermelidir. Ayrıca kişinin adını, soyadını,
-telefonunu ve sık kullanılan ifadeleri ("123456", "sifre", "sardes" vb.)
-içeremez. Formda kurallar yazdıkça işaretlenir. Kurallar
-`src/lib/password-rules.ts` dosyasındadır.
+Şifreler en az 10 karakter olmalı; büyük harf, küçük harf, rakam ve özel
+karakter içermelidir. Ayrıca kişinin adını, soyadını, telefonunu ve sık
+kullanılan ifadeleri ("123456", "sifre", "sardes" vb.) içeremez. Formda
+kurallar yazdıkça işaretlenir. Kurallar `src/lib/password-rules.ts`
+dosyasındadır.
 
-### Veritabanı ve barındırma
+## Veritabanı ve barındırma
 
 - Node.js'in yerleşik SQLite modülü kullanılır; ek veritabanı sunucusu
   veya paket gerekmez. Veri `data/sardes.db` dosyasındadır (konumu
@@ -246,19 +259,21 @@ içeremez. Formda kurallar yazdıkça işaretlenir. Kurallar
   olarak ayarlanır. 15 dakikada 5 hatalı giriş denemesinden sonra hesap
   geçici olarak kilitlenir. Aynı saate çift randevu, veritabanı işlemiyle
   (transaction) engellenir. Site mutlaka **HTTPS** ile yayınlanmalıdır.
+- Veritabanında önceki sürümden kalan `patient_records` / `audit_log`
+  tabloları kullanılmıyor; hasta dosyaları (röntgen, rapor vb.) yönetim
+  sitesinde tutulacak.
 
-### Henüz olmayanlar
+## Henüz olmayanlar
 
+- **Yönetim sitesi:** ayrı proje olarak yapılacak; bu sitedeki
+  senkronizasyon API'si hazır.
 - **SMS / e-posta bildirimi:** randevu onaylandığında hastaya otomatik
-  bildirim gitmez; hasta durumu “Hesabım” sayfasından görür. Bir SMS veya
-  e-posta servisi seçildiğinde eklenebilir.
-- **Telefon doğrulaması:** kayıtta SMS kodu yoktur. Telefonla alınan
-  randevular artık panelden eklenebiliyor (yukarıya bakın), ancak bu
-  hastaların kaydı, numarayı bilen biri tarafından `/kayit` ile
+  bildirim gitmez; hasta durumu “Hesabım” sayfasından görür.
+- **Telefon doğrulaması:** kayıtta SMS kodu yoktur. Klinikte telefonla
+  kaydedilen bir hastanın kaydı, numarayı bilen biri tarafından `/kayit` ile
   sahiplenilebilir. SMS servisi eklendiğinde kayıtta doğrulama yapılmalıdır.
-- **Randevu düzenleme:** personel eklenmiş bir randevunun gününü/saatini
-  değiştiremez; iptal edip yeniden ekler. Hasta adı/telefonu da panelden
-  düzeltilemez.
+- **Randevu düzenleme:** bir randevunun günü/saati değiştirilemez; iptal
+  edilip yeniden eklenir.
 
 ## Yayından önce tamamlanması gerekenler
 
@@ -278,12 +293,10 @@ içeremez. Formda kurallar yazdıkça işaretlenir. Kurallar
 - [ ] **Gerçek fotoğraflar** (isteğe bağlı) ve anlamlı `alt` metinleri
 - [ ] **SSS yanıtlarının** klinik tarafından onaylanması
 - [ ] **Online randevu açılacaksa:** gerçek takvim (`booking.schedule`),
-      KVKK aydınlatma metni ve veri sorumlusu (`legal`), personel hesapları
-      (`npm run personel:ekle`), kalıcı diskli sunucu, HTTPS ve yedekleme
-- [ ] **Hasta dosyaları kullanılacaksa:** sağlık verisi (KVKK özel nitelikli
-      kişisel veri) işlendiği için hukuki danışmanlık, VERBİS kaydı, sunucu
-      erişim güvenliği, şifreli disk ve düzenli **şifreli** yedekleme
-      (`data/sardes.db` ve `data/files/`)
+      KVKK aydınlatma metni ve veri sorumlusu (`legal`), kalıcı diskli sunucu,
+      HTTPS ve düzenli **şifreli** yedekleme
+- [ ] **Yönetim sitesi bağlanacaksa:** `SYNC_API_KEY` (ve isteğe bağlı
+      `SYNC_WEBHOOK_URL`) tanımlanmalı; anahtar yalnızca iki sunucuda tutulmalı
 - [ ] **Google ile giriş** kullanılacaksa: Google Cloud OAuth istemcisi ve
       ortam değişkenleri
 - [ ] KVKK aydınlatma metni / çerez bilgilendirmesi (form, analiz aracı veya
@@ -293,21 +306,21 @@ içeremez. Formda kurallar yazdıkça işaretlenir. Kurallar
 
 ```
 src/
-  app/                 sayfalar (/, /klinigimiz, /hekimlerimiz, /tedaviler,
-                       /sik-sorulan-sorular, /iletisim), sitemap, robots
-  components/          tekrar kullanılabilir bileşenler
-  config/site.ts       ← tüm klinik bilgileri ve randevu ayarları
-  config/navigation.ts menü
-  lib/content.ts       görünürlük kuralları (telefon, taslak tedaviler vb.)
+  app/                  sayfalar (/, /klinigimiz, /hekimlerimiz, /tedaviler,
+                        /sik-sorulan-sorular, /iletisim, /kayit, /giris,
+                        /randevu, /hesabim), sitemap, robots
+  app/api/auth/google/  Google ile giriş
+  app/api/sync/         yönetim sitesi senkronizasyon API'si
+  components/           tekrar kullanılabilir bileşenler
+  config/site.ts        ← tüm klinik bilgileri ve randevu ayarları
+  config/navigation.ts  menü
+  lib/content.ts        görünürlük kuralları (telefon, taslak tedaviler vb.)
   lib/booking-status.ts online randevunun açık olup olmadığı
-  actions/             sunucu işlemleri (kayıt, giriş, randevu, yönetim, hasta kayıtları)
-  app/api/             Google girişi, hasta dosyası yükleme/indirme
-  server/              veritabanı, oturum, randevu, hasta kayıtları, Google
   lib/password-rules.ts şifre kuralları
-scripts/create-staff.mts personel hesabı oluşturma (doktor/asistan)
-data/                SQLite veritabanı ve hasta dosyaları (depoya ASLA eklenmez)
-assets/              logonun özgün dosyası
-public/images/         klinik ve hekim fotoğrafları
+  actions/              sunucu işlemleri (kayıt, giriş, randevu, Google)
+  server/               veritabanı, oturum, randevu kuralları, senkronizasyon
+data/                   SQLite veritabanı (depoya ASLA eklenmez)
+assets/                 logonun özgün dosyası
 ```
 
 Erişilebilirlik: anlamlı başlık sırası, “İçeriğe geç” bağlantısı, görünür

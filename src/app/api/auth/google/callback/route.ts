@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { bookingOpen } from "@/lib/booking-status";
-import { createSession, homeFor, type Role } from "@/server/auth";
+import { ACCOUNT_HOME, createSession } from "@/server/auth";
 import { getDb } from "@/server/db";
 import { exchangeCode, googleEnabled, OAUTH_COOKIE, PENDING_COOKIE } from "@/server/google";
 
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   }
 
   const db = getDb();
-  type Row = { id: number; role: Role; disabled: number; google_sub: string | null };
+  type Row = { id: number; role: "patient" | "staff"; disabled: number; google_sub: string | null };
   let user = db
     .prepare("SELECT id, role, disabled, google_sub FROM users WHERE google_sub = ?")
     .get(profile.sub) as Row | undefined;
@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
       .prepare("SELECT id, role, disabled, google_sub FROM users WHERE email = ?")
       .get(profile.email) as Row | undefined;
     if (byEmail) {
+      if (byEmail.role !== "patient") return fail("hesap-yok");
       if (byEmail.google_sub && byEmail.google_sub !== profile.sub) return fail("baska");
       db.prepare("UPDATE users SET google_sub = ? WHERE id = ?").run(profile.sub, byEmail.id);
       user = byEmail;
@@ -55,14 +56,16 @@ export async function GET(req: NextRequest) {
 
   if (user) {
     if (user.disabled) return fail("hata");
-    if (user.role === "patient" && !bookingOpen) return fail("kapali");
-    await createSession(user.id, user.role);
-    const res = NextResponse.redirect(new URL(safeNext(saved.next, homeFor(user)), req.url));
+    // Bu sitede yalnızca hasta hesapları giriş yapabilir
+    if (user.role !== "patient") return fail("hesap-yok");
+    if (!bookingOpen) return fail("kapali");
+    await createSession(user.id);
+    const res = NextResponse.redirect(new URL(safeNext(saved.next, ACCOUNT_HOME), req.url));
     res.cookies.delete({ name: OAUTH_COOKIE, path: "/api/auth/google" });
     return res;
   }
 
-  // Hesap yok: personel hesabı Google ile açılamaz; hasta ise kaydı tamamlamaya yönlendir
+  // Hesap yok: kaydı tamamlama sayfasına yönlendir
   if (!bookingOpen) return fail("hesap-yok");
 
   const token = randomBytes(32).toString("base64url");

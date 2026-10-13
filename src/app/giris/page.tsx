@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contact } from "@/config/site";
 import { bookingOpen } from "@/lib/booking-status";
-import { getCurrentUser, homeFor } from "@/server/auth";
+import { ACCOUNT_HOME, getCurrentUser } from "@/server/auth";
 import { AuthShell } from "@/components/AuthShell";
 import { LoginForm } from "@/components/account/LoginForm";
 import { GoogleButton } from "@/components/account/GoogleButton";
@@ -15,7 +15,7 @@ const googleErrors: Record<string, string> = {
   sure: "Google ile giriş süresi doldu. Lütfen tekrar deneyin.",
   hata: "Google ile giriş yapılamadı. Lütfen tekrar deneyin.",
   baska: "Bu e-posta adresi başka bir Google hesabına bağlı.",
-  "hesap-yok": "Bu Google hesabıyla eşleşen bir hesap bulunamadı. Personel hesapları klinik tarafından açılır.",
+  "hesap-yok": "Bu Google hesabıyla eşleşen bir hasta hesabı bulunamadı.",
   kapali: "Hasta hesapları şu anda kullanıma kapalı.",
 };
 
@@ -27,7 +27,7 @@ export default async function LoginPage({
   searchParams: Promise<{ sonra?: string; google?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect(homeFor(user));
+  if (user) redirect(ACCOUNT_HOME);
   const { sonra, google } = await searchParams;
 
   return (

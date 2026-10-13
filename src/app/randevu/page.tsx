@@ -42,7 +42,6 @@ export default async function BookingPage() {
     );
   }
   if (user.mustChangePassword) redirect("/hesabim/sifre");
-  if (user.role === "staff") redirect("/yonetim");
 
   const days = availableDays();
   return (

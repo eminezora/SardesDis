@@ -11,6 +11,7 @@ import {
 } from "@/lib/time";
 import type { DatabaseSync } from "node:sqlite";
 import { getDb, transaction } from "./db";
+import { recordEvent } from "./sync";
 
 export type Status = "pending" | "confirmed" | "cancelled" | "rejected" | "completed" | "no_show";
 
@@ -166,7 +167,9 @@ export function createAppointment(input: {
          VALUES (?, ?, ?, ?, 'pending', ?, ?)`,
       )
       .run(patientId, doctorSlug, date, time, now, now);
-    return Number(r.lastInsertRowid);
+    const id = Number(r.lastInsertRowid);
+    recordEvent(db, "appointment.created", id);
+    return id;
   });
 }
 
@@ -221,45 +224,13 @@ export function cancelByPatient(patientId: number, id: number) {
     db.prepare(
       "UPDATE appointments SET status = 'cancelled', cancelled_by = 'patient', updated_at = ? WHERE id = ?",
     ).run(Date.now(), id);
+    recordEvent(db, "appointment.cancelled", id);
   });
 }
 
-/* Personel işlemleri ---------------------------------------------- */
+/* Klinik işlemleri (yönetim sitesinden /api/sync ile) --------------- */
 
-export type StaffAppointment = AppointmentRow & {
-  first_name: string;
-  last_name: string;
-  phone: string | null;
-  email: string | null;
-};
-
-export function staffAppointments(filter: { from: string; to: string; status?: Status | "active" }) {
-  const where = ["a.date BETWEEN ? AND ?"];
-  const params: (string | number)[] = [filter.from, filter.to];
-  if (filter.status === "active") where.push(`a.${ACTIVE_SQL}`);
-  else if (filter.status) {
-    where.push("a.status = ?");
-    params.push(filter.status);
-  }
-  return getDb()
-    .prepare(
-      `SELECT a.id, a.patient_id, a.doctor_slug, a.date, a.time, a.status, a.cancelled_by, a.source, a.created_at,
-              u.first_name, u.last_name, u.phone, u.email
-         FROM appointments a JOIN users u ON u.id = a.patient_id
-        WHERE ${where.join(" AND ")}
-        ORDER BY a.date, a.time`,
-    )
-    .all(...params) as StaffAppointment[];
-}
-
-export function pendingCount(): number {
-  const { n } = getDb()
-    .prepare("SELECT COUNT(*) AS n FROM appointments WHERE status = 'pending' AND date >= ?")
-    .get(istanbulDate()) as { n: number };
-  return n;
-}
-
-/** Personelin yapabileceği durum geçişleri */
+/** Kliniğin (yönetim sitesinin) yapabileceği durum geçişleri */
 const TRANSITIONS: Partial<Record<Status, Status[]>> = {
   pending: ["confirmed", "rejected"],
   confirmed: ["completed", "no_show", "cancelled"],
@@ -306,10 +277,11 @@ export function updateByStaff(id: number, next: Status, doctorSlug?: string | nu
               updated_at = ?
         WHERE id = ?`,
     ).run(next, slug, next, Date.now(), id);
+    recordEvent(db, next === "cancelled" ? "appointment.cancelled" : "appointment.updated", id);
   });
 }
 
-/* Personelin eklediği randevu (telefonla alınan) ------------------- */
+/* Kliniğin eklediği randevu (telefonla alınan) --------------------- */
 
 /** Personel formu için bir günün takvim saatleri; dolu olanlar da listelenir */
 export function staffDaySlots(date: string, now = Date.now()): Slot[] {
@@ -376,6 +348,7 @@ export function createByStaff(input: {
         )
         .run(patient.firstName, patient.lastName, patient.phone, now);
       patientId = Number(r.lastInsertRowid);
+      recordEvent(db, "patient.created", patientId);
     }
 
     const taken = overlapping(activeOn(db, date), time);
@@ -397,34 +370,8 @@ export function createByStaff(input: {
          VALUES (?, ?, ?, ?, 'confirmed', 'staff', ?, ?)`,
       )
       .run(patientId, doctorSlug, date, time, now, now);
-    return Number(r.lastInsertRowid);
+    const id = Number(r.lastInsertRowid);
+    recordEvent(db, "appointment.created", id);
+    return id;
   });
-}
-
-export type PatientHit = { id: number; name: string; phone: string | null; hasAccount: boolean };
-
-/** Personel formundaki hasta araması (ad soyad, e-posta veya telefon) */
-export function searchPatients(q: string, phone: string | null): PatientHit[] {
-  const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-  const rows = getDb()
-    .prepare(
-      `SELECT id, first_name, last_name, phone, password_hash IS NOT NULL AS has_account
-         FROM users
-        WHERE role = 'patient' AND disabled = 0
-          AND ((first_name || ' ' || last_name) LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR phone = ?)
-        ORDER BY first_name, last_name LIMIT 10`,
-    )
-    .all(like, like, phone ?? "") as {
-    id: number;
-    first_name: string;
-    last_name: string;
-    phone: string | null;
-    has_account: number;
-  }[];
-  return rows.map((r) => ({
-    id: r.id,
-    name: `${r.first_name} ${r.last_name}`,
-    phone: r.phone,
-    hasAccount: r.has_account === 1,
-  }));
 }

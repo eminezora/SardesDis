@@ -2,13 +2,11 @@
   "name": "sardes-dis-klinigi",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit",
-    "personel:ekle": "node scripts/create-staff.mts"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "next": "^16.4.0",
