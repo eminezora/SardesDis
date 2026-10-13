@@ -13,6 +13,13 @@ export const bookingMissing: string[] = [
   !booking.schedule && "Randevu takvimi (booking.schedule)",
   legal.kvkkText.length === 0 && "KVKK aydınlatma metni (legal.kvkkText)",
   !legal.dataController && "Veri sorumlusu (legal.dataController)",
+].filter((x): x is string => Boolean(x));
+
+/**
+ * Önerilen ama randevuyu engellemeyen eksikler. Örnek telefon numarası
+ * sitede "örnek numara" olarak gösterilir ve aranamaz.
+ */
+export const bookingWarnings: string[] = [
   contact.phone.isPlaceholder && "Gerçek telefon numarası",
 ].filter((x): x is string => Boolean(x));
 

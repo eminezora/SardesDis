@@ -105,11 +105,23 @@ doğrulanan her tedavi için `approved: true` yapın.
 Talep, klinik onaylayana kadar kesinleşmiş sayılmaz; bu hastaya açıkça
 yazılır. Onay, yönetim sitesinden API ile gelir.
 
-### Yayında açmak
+### Şu anki durum: AÇIK (örnek takvim ve KVKK taslağıyla)
 
-Sistem varsayılan olarak **kapalıdır**: menüde “Randevu Al” görünmez ve
-`/kayit`, `/randevu` sayfaları 404 verir. Açmak için `src/config/site.ts`
-dosyasında:
+Online randevu yayında **açıktır**; hastalar üye olup randevu talebi
+gönderebilir. Ancak iki bilgi geçicidir ve en kısa sürede değiştirilmelidir:
+
+- ⚠️ **Örnek randevu takvimi:** hafta içi 09.00–12.00 ve 13.00–17.00
+  (`booking.schedule`). Kliniğin gerçek saatleriyle değiştirin.
+- ⚠️ **KVKK aydınlatma metni taslağı** (`legal.kvkkText`) ve veri sorumlusu
+  (`legal.dataController`). Bir hukukçuya kontrol ettirin; veri sorumlusu
+  unvanını netleştirin.
+- Telefon hâlâ örnek numaradır; sitede "örnek numara" olarak görünür ve
+  aranamaz. Randevuyu engellemez, ama gerçek numara girilmelidir.
+
+### Açma / kapatma koşulları
+
+Randevuyu kapatmak için `booking.enabled: false` yapın. Açık kalması için
+`src/config/site.ts` dosyasında şunlar dolu olmalıdır:
 
 1. `booking.schedule`: kliniğin gerçek haftalık takvimi, ör.
    `{ 1: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "18:00" }], ... }`
@@ -117,8 +129,9 @@ dosyasında:
 2. `legal.kvkkText` ve `legal.dataController`: hukuki danışmanlıkla
    hazırlanmış aydınlatma metni. Bir diş kliniğine randevu kaydı sağlık
    verisi sayılabileceğinden bu adım atlanmamalıdır.
-3. Gerçek telefon numarası (`contact.phone`, `isPlaceholder: false`).
-4. `booking.enabled: true`.
+3. `booking.enabled: true`.
+
+Gerçek telefon numarası önerilir ama randevuyu engellemez.
 
 Bunlardan biri eksikse sistem açılmaz (`src/lib/booking-status.ts`).
 Randevu süresi, en erken/en geç randevu, kişi başı aktif randevu sınırı,
@@ -314,9 +327,10 @@ dosyasındadır.
 - [ ] **Hekim bilgileri:** yalnızca doğrulanmış eğitim, ilgi alanı ve dil bilgileri
 - [ ] **Gerçek fotoğraflar** (isteğe bağlı) ve anlamlı `alt` metinleri
 - [ ] **SSS yanıtlarının** klinik tarafından onaylanması
-- [ ] **Online randevu açılacaksa:** gerçek takvim (`booking.schedule`),
-      KVKK aydınlatma metni ve veri sorumlusu (`legal`), kalıcı diskli sunucu,
-      HTTPS ve düzenli **şifreli** yedekleme
+- [ ] **Online randevu (şu an açık):** örnek takvimi gerçek saatlerle
+      değiştirin (`booking.schedule`); KVKK taslağını ve veri sorumlusunu
+      hukukçuya onaylatın (`legal`); kalıcı diskli sunucu, HTTPS ve düzenli
+      **şifreli** yedekleme
 - [ ] **Yönetim sitesi bağlanacaksa:** `SYNC_API_KEY` (ve isteğe bağlı
       `SYNC_WEBHOOK_URL`) tanımlanmalı; anahtar yalnızca iki sunucuda tutulmalı
 - [ ] **Google ile giriş** kullanılacaksa: Google Cloud OAuth istemcisi ve

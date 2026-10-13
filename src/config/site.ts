@@ -303,10 +303,21 @@ export const booking = {
    * ve gerçek telefon numarası. Eksik olan varsa sistem açılmaz
    * (bkz. src/lib/booking-status.ts).
    */
-  enabled: false,
+  enabled: true,
 
-  /** Kliniğin gerçek randevu takvimi. Kesinleşene kadar `null`. */
-  schedule: null as WeeklySchedule | null,
+  /**
+   * Randevu takvimi.
+   * ⚠️ ŞİMDİLİK ÖRNEK TAKVİM: hafta içi 09.00–12.00 ve 13.00–17.00.
+   * Kliniğin gerçek çalışma saatleriyle değiştirin. Bu saatler sitede
+   * "çalışma saatleri" olarak yazmaz; yalnızca randevu saatlerini belirler.
+   */
+  schedule: {
+    1: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "17:00" }],
+    2: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "17:00" }],
+    3: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "17:00" }],
+    4: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "17:00" }],
+    5: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "17:00" }],
+  } as WeeklySchedule | null,
 
   /** Bir randevunun süresi (dakika) */
   slotMinutes: 30,
@@ -339,7 +350,19 @@ export const legal = {
    * KVKK aydınlatma metni (paragraflar). Hukuki danışmanlıkla hazırlanmalı.
    * Boş iken online randevu ve hesap sistemi yayında açılmaz.
    */
-  kvkkText: [] as string[],
+  // ⚠️ TASLAK: Yayında kalmadan önce bir hukukçuya kontrol ettirin;
+  // veri sorumlusu unvanını (ör. hekim adı veya şirket unvanı) netleştirin.
+  kvkkText: [
+    "Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) 10. maddesi uyarınca, online randevu ve hasta hesabı süreçlerinde işlenen kişisel verileriniz hakkında sizi bilgilendirmek amacıyla hazırlanmıştır.",
+    "İşlenen kişisel veriler: Kimlik bilgileri (ad, soyad); iletişim bilgileri (cep telefonu, isteğe bağlı e-posta); randevu bilgileri (randevu tarihi ve saati, hekim tercihi, randevunun durumu); hesap güvenliği bilgileri (şifrenizin geri döndürülemez biçimde şifrelenmiş hâli, oturum ve giriş denemesi kayıtları). Google ile giriş yapmanız hâlinde Google hesabınıza ait e-posta adresi, ad-soyad ve hesap kimliği. Online randevu formunda sağlık durumunuza ilişkin bilgi istenmez; ancak bir diş kliniğine randevu talebinde bulunmanız, sağlık hizmeti almak istediğinize ilişkin bilgi niteliği taşıyabilir.",
+    "İşleme amaçları: Online randevu taleplerinizin alınması, planlanması, onaylanması veya iptal edilmesi; randevunuzla ilgili sizinle iletişime geçilmesi; hasta hesabınızın oluşturulması ve güvenliğinin sağlanması; ilgili mevzuattan doğan yükümlülüklerin yerine getirilmesi.",
+    "Hukuki sebepler: Kişisel verileriniz KVKK'nın 5. maddesinde yer alan bir sözleşmenin kurulması veya ifasıyla doğrudan ilgili olması, veri sorumlusunun hukuki yükümlülüğünü yerine getirebilmesi ve temel hak ve özgürlüklerinize zarar vermemek kaydıyla meşru menfaati hukuki sebeplerine; sağlık hizmetine ilişkin veriler ise KVKK'nın 6. maddesinde öngörülen şartlara dayanılarak işlenir.",
+    "Toplama yöntemi: Kişisel verileriniz, bu internet sitesindeki kayıt, giriş ve randevu formları aracılığıyla elektronik ortamda toplanır. Telefonla alınan randevularda bilgileriniz klinik personeli tarafından sisteme girilir.",
+    "Aktarım: Kişisel verileriniz, randevu süreçlerinin yürütülmesi amacıyla kliniğimizin kullandığı randevu yönetim sistemine ve sitenin barındırıldığı hizmet sağlayıcısına; hukuki bir yükümlülük bulunması hâlinde yetkili kamu kurum ve kuruluşlarına aktarılabilir. Google ile giriş yöntemini seçmeniz hâlinde giriş işlemi Google LLC tarafından sağlanır.",
+    "Saklama süresi: Kişisel verileriniz, işleme amacının gerektirdiği süre ve ilgili mevzuatta öngörülen süreler boyunca saklanır; bu sürelerin sona ermesiyle silinir, yok edilir veya anonim hâle getirilir.",
+    "Haklarınız: KVKK'nın 11. maddesi uyarınca; kişisel verilerinizin işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme, işlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme, yurt içinde veya yurt dışında aktarıldığı üçüncü kişileri bilme, eksik veya yanlış işlenmişse düzeltilmesini isteme, KVKK'da öngörülen şartlar çerçevesinde silinmesini veya yok edilmesini isteme, bu işlemlerin aktarıldığı üçüncü kişilere bildirilmesini isteme, münhasıran otomatik sistemlerle analiz edilmesi sonucunda aleyhinize bir sonuç ortaya çıkmasına itiraz etme ve kanuna aykırı işleme nedeniyle zarara uğramanız hâlinde zararın giderilmesini talep etme haklarına sahipsiniz.",
+    "Başvuru: Bu haklarınıza ilişkin taleplerinizi, Veri Sorumlusuna Başvuru Usul ve Esasları Hakkında Tebliğ'e uygun olarak, kimliğinizi doğrulayan bilgilerle birlikte yazılı olarak kliniğimizin adresine iletebilirsiniz.",
+  ] as string[],
   /** Veri sorumlusu unvanı, ör. "Sardes Diş Kliniği – Dt. ..." */
-  dataController: null as string | null,
+  dataController: "Sardes Diş Kliniği — Avar Caddesi, Salihli / Manisa" as string | null,
 };
